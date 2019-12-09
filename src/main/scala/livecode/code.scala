@@ -199,7 +199,7 @@ object code {
     final class Postgres[F[+_, +_]: BIOMonad](
       sql: SQL[F],
       log: LogBIO[F],
-    ) extends DIResource.Make_[F[Throwable, ?], Ladder[F]](
+    ) extends DIResource.MakePair[F[Throwable, ?], Ladder[F]](
         acquire = for {
           _ <- log.info("Creating Ladder table")
           _ <- sql.execute("ladder-ddl") {
@@ -226,8 +226,8 @@ object code {
                      |""".stripMargin.query[(UserId, Score)].to[List]
               }
           }
-        } yield res
-      )(release = F.unit)
+        } yield res -> F.unit
+      )
   }
 
   object Profiles {
