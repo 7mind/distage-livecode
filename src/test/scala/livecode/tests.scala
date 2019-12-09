@@ -86,7 +86,7 @@ class ProfilesTestPostgres extends LivecodeTest {
   "Profiles" should {
     // that's what the env signature looks like for ZIO Env injection
     "set & get" in {
-      val zioValue: ZIO[ProfilesEnv with RndEnv, QueryFailure, Unit] = for {
+      val zioValue: ZIO[{ def profiles: Profiles[IO]; def rnd: Rnd[IO] }, QueryFailure, Unit] = for {
         user    <- rnd[UserId]
         name    <- rnd[String]
         desc    <- rnd[String]
