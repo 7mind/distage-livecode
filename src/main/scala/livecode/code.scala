@@ -20,6 +20,7 @@ import logstage.LogBIO
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.blaze.BlazeServerBuilder
+import zio.{IO, ZIO}
 
 import scala.annotation.unused
 
@@ -103,7 +104,7 @@ object code {
       }
     )
 
-  object Ranks {
+  object Ranks extends Ranks[ZIO[Ranks[IO]#Env, ?, ?]] {
     final class Impl[F[+_, +_]: BIOMonad](
       ladder: Ladder[F],
       profiles: Profiles[F],
@@ -126,6 +127,8 @@ object code {
         } yield res
       }
     }
+
+    override def getRank(userId: UserId) = ZIO.accessM(_.ranks.getRank(userId))
   }
 
   trait SQL[F[_, _]] {
@@ -200,8 +203,7 @@ object code {
   import doobie.postgres.implicits._
   import doobie.syntax.string._
 
-  object Ladder {
-
+  object Ladder extends Ladder[ZIO[Ladder[IO]#Env, ?, ?]] {
     final class Postgres[F[+_, +_]: BIOMonad](
       sql: SQL[F],
       log: LogBIO[F],
@@ -234,10 +236,12 @@ object code {
           }
         } yield res -> F.unit
       )
+
+    def submitScore(userId: UserId, score: Score) = ZIO.accessM(_.ladder.submitScore(userId, score))
+    def getScores                                 = ZIO.accessM(_.ladder.getScores)
   }
 
-  object Profiles {
-
+  object Profiles extends Profiles[ZIO[Profiles[IO]#Env, ?, ?]] {
     final class Postgres[F[+_, +_]: BIOApplicative](
       sql: SQL[F],
       log: LogBIO[F],
@@ -278,6 +282,8 @@ object code {
       }
     }
 
+    override def setProfile(userId: UserId, profile: UserProfile) = ZIO.accessM(_.profiles.setProfile(userId, profile))
+    override def getProfile(userId: UserId)                       = ZIO.accessM(_.profiles.getProfile(userId))
   }
 
   trait HttpApi[F[_, _]] {

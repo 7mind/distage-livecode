@@ -50,6 +50,7 @@ lazy val livecode = project
   .settings(
     name := "livecode",
     scalacOptions --= Seq("-Werror", "-Xfatal-warnings"),
+    scalacOptions ++= Seq("-language:reflectiveCalls"),
     libraryDependencies ++= Seq(
       Deps.distageCore,
       Deps.distageRoles,

@@ -3,6 +3,7 @@ package livecode
 import izumi.functional.bio.{BIO, F}
 import org.scalacheck.Gen.Parameters
 import org.scalacheck.{Arbitrary, Prop}
+import zio.{IO, ZIO}
 
 trait Rnd[F[_, _]] {
   type Env = { def rnd: Rnd[F] }
@@ -10,7 +11,7 @@ trait Rnd[F[_, _]] {
   def apply[A: Arbitrary]: F[Nothing, A]
 }
 
-object Rnd {
+object Rnd extends Rnd[ZIO[Rnd[IO]#Env, ?, ?]] {
   final class Impl[F[+_, +_]: BIO] extends Rnd[F] {
     override def apply[A: Arbitrary]: F[Nothing, A] = {
       F.sync {
@@ -19,4 +20,6 @@ object Rnd {
       }
     }
   }
+
+  override def apply[A: Arbitrary] = ZIO.accessM(_.rnd.apply[A])
 }

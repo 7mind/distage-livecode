@@ -11,7 +11,6 @@ import izumi.distage.testkit.TestConfig
 import izumi.distage.testkit.scalatest.DistageBIOSpecScalatest
 import izumi.distage.testkit.services.DISyntaxZIOEnv
 import livecode.code._
-import livecode.zioenv._
 import zio.{IO, Task, ZIO}
 
 abstract class LivecodeTest extends DistageBIOSpecScalatest[IO] with DISyntaxZIOEnv {
@@ -59,14 +58,14 @@ class LadderTestPostgres extends LivecodeTest with DummyTest {
     // other tests get dependencies via ZIO Env:
     "return higher score higher in the list" in {
       for {
-        user1  <- rnd[UserId]
-        score1 <- rnd[Score]
-        user2  <- rnd[UserId]
-        score2 <- rnd[Score]
+        user1  <- Rnd[UserId]
+        score1 <- Rnd[Score]
+        user2  <- Rnd[UserId]
+        score2 <- Rnd[Score]
 
-        _      <- ladder.submitScore(user1, score1)
-        _      <- ladder.submitScore(user2, score2)
-        scores <- ladder.getScores
+        _      <- Ladder.submitScore(user1, score1)
+        _      <- Ladder.submitScore(user2, score2)
+        scores <- Ladder.getScores
 
         user1Rank = scores.indexWhere(_._1 == user1)
         user2Rank = scores.indexWhere(_._1 == user2)
@@ -87,12 +86,12 @@ class ProfilesTestPostgres extends LivecodeTest {
     // that's what the env signature looks like for ZIO Env injection
     "set & get" in {
       val zioValue: ZIO[Profiles[IO]#Env with Rnd[IO]#Env, QueryFailure, Unit] = for {
-        user    <- rnd[UserId]
-        name    <- rnd[String]
-        desc    <- rnd[String]
+        user    <- Rnd[UserId]
+        name    <- Rnd[String]
+        desc    <- Rnd[String]
         profile = UserProfile(name, desc)
-        _       <- profiles.setProfile(user, profile)
-        res     <- profiles.getProfile(user)
+        _       <- Profiles.setProfile(user, profile)
+        res     <- Profiles.getProfile(user)
         _       = assert(res contains profile)
       } yield ()
       zioValue
@@ -104,46 +103,46 @@ class RanksTestPostgres extends LivecodeTest {
   "Ranks" should {
     "return None for a user with no score" in {
       for {
-        user    <- rnd[UserId]
-        name    <- rnd[String]
-        desc    <- rnd[String]
+        user    <- Rnd[UserId]
+        name    <- Rnd[String]
+        desc    <- Rnd[String]
         profile = UserProfile(name, desc)
-        _       <- profiles.setProfile(user, profile)
-        res1    <- ranks.getRank(user)
+        _       <- Profiles.setProfile(user, profile)
+        res1    <- Ranks.getRank(user)
         _       = assert(res1.isEmpty)
       } yield ()
     }
 
     "return None for a user with no profile" in {
       for {
-        user  <- rnd[UserId]
-        score <- rnd[Score]
-        _     <- ladder.submitScore(user, score)
-        res1  <- ranks.getRank(user)
+        user  <- Rnd[UserId]
+        score <- Rnd[Score]
+        _     <- Ladder.submitScore(user, score)
+        res1  <- Ranks.getRank(user)
         _     = assert(res1.isEmpty)
       } yield ()
     }
 
     "assign a higher rank to a user with more score" in {
       for {
-        user1  <- rnd[UserId]
-        name1  <- rnd[String]
-        desc1  <- rnd[String]
-        score1 <- rnd[Score]
+        user1  <- Rnd[UserId]
+        name1  <- Rnd[String]
+        desc1  <- Rnd[String]
+        score1 <- Rnd[Score]
 
-        user2  <- rnd[UserId]
-        name2  <- rnd[String]
-        desc2  <- rnd[String]
-        score2 <- rnd[Score]
+        user2  <- Rnd[UserId]
+        name2  <- Rnd[String]
+        desc2  <- Rnd[String]
+        score2 <- Rnd[Score]
 
-        _ <- profiles.setProfile(user1, UserProfile(name1, desc1))
-        _ <- ladder.submitScore(user1, score1)
+        _ <- Profiles.setProfile(user1, UserProfile(name1, desc1))
+        _ <- Ladder.submitScore(user1, score1)
 
-        _ <- profiles.setProfile(user2, UserProfile(name2, desc2))
-        _ <- ladder.submitScore(user2, score2)
+        _ <- Profiles.setProfile(user2, UserProfile(name2, desc2))
+        _ <- Ladder.submitScore(user2, score2)
 
-        user1Rank <- ranks.getRank(user1).map(_.get.rank)
-        user2Rank <- ranks.getRank(user2).map(_.get.rank)
+        user1Rank <- Ranks.getRank(user1).map(_.get.rank)
+        user2Rank <- Ranks.getRank(user2).map(_.get.rank)
 
         _ = if (score1 > score2) {
           assert(user1Rank < user2Rank)
