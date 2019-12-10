@@ -46,6 +46,8 @@ object code {
   }
 
   trait Ladder[F[_, _]] {
+    type Env = { def ladder: Ladder[F] }
+
     def submitScore(userId: UserId, score: Score): F[QueryFailure, Unit]
     def getScores: F[QueryFailure, List[(UserId, Score)]]
   }
@@ -57,11 +59,15 @@ object code {
     )
 
   trait Profiles[F[_, _]] {
+    type Env = { def profiles: Profiles[F] }
+
     def setProfile(userId: UserId, profile: UserProfile): F[QueryFailure, Unit]
     def getProfile(userId: UserId): F[QueryFailure, Option[UserProfile]]
   }
 
   trait Ranks[F[_, _]] {
+    type Env = { def ranks: Ranks[F] }
+
     def getRank(userId: UserId): F[QueryFailure, Option[RankedProfile]]
   }
 

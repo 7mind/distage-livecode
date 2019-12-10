@@ -5,6 +5,8 @@ import org.scalacheck.Gen.Parameters
 import org.scalacheck.{Arbitrary, Prop}
 
 trait Rnd[F[_, _]] {
+  type Env = { def rnd: Rnd[F] }
+
   def apply[A: Arbitrary]: F[Nothing, A]
 }
 
