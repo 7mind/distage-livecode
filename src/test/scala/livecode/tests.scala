@@ -1,18 +1,22 @@
 package livecode
 
-import distage.{DIKey, ModuleDef}
-import doobie.util.transactor.Transactor
-import izumi.distage.docker.examples.PostgresDocker
+import com.typesafe.config.ConfigFactory
+import distage.config.AppConfigModule
+import distage.{DIKey, Injector, ModuleDef}
 import izumi.distage.framework.model.PluginSource
 import izumi.distage.model.definition.Activation
 import izumi.distage.model.definition.StandardAxis.Repo
+import izumi.distage.model.plan.GCMode
 import izumi.distage.plugins.load.PluginLoader.PluginConfig
 import izumi.distage.testkit.TestConfig
 import izumi.distage.testkit.scalatest.DistageBIOSpecScalatest
 import izumi.distage.testkit.services.DISyntaxZIOEnv
+import izumi.logstage.api.logger.LogRouter
 import livecode.code._
+import livecode.plugins.{LivecodePlugin, ZIOPlugin}
 import livecode.zioenv._
-import zio.{IO, Task, ZIO}
+import logstage.di.LogstageModule
+import zio.{IO, ZIO}
 
 abstract class LivecodeTest extends DistageBIOSpecScalatest[IO] with DISyntaxZIOEnv {
   override def config = TestConfig(
@@ -22,11 +26,9 @@ abstract class LivecodeTest extends DistageBIOSpecScalatest[IO] with DISyntaxZIO
       make[Rnd[IO]].from[Rnd.Impl[IO]]
       include(PostgresDockerModule)
     },
-    memoizedKeys = Set(
-      DIKey.get[Transactor[Task]],
+    memoizationRoots = Set(
       DIKey.get[Ladder[IO]],
       DIKey.get[Profiles[IO]],
-      DIKey.get[PostgresDocker.Container],
     ),
   )
 }
@@ -37,11 +39,21 @@ trait DummyTest extends LivecodeTest {
   )
 }
 
-final class LadderTestDummy extends LadderTestPostgres with DummyTest
-final class ProfilesTestDummy extends ProfilesTestPostgres with DummyTest
-final class RanksTestDummy extends RanksTestPostgres with DummyTest
+trait ProdTest extends LivecodeTest {
+  override final def config = super.config.copy(
+    activation = Activation(Repo -> Repo.Prod),
+  )
+}
 
-class LadderTestPostgres extends LivecodeTest with DummyTest {
+final class LadderTestDummy extends LadderTest with DummyTest
+final class ProfilesTestDummy extends ProfilesTest with DummyTest
+final class RanksTestDummy extends RanksTest with DummyTest
+
+final class LadderTestPostgres extends LadderTest with ProdTest
+final class ProfilesTestPostgres extends ProfilesTest with ProdTest
+final class RanksTestPostgres extends RanksTest with ProdTest
+
+abstract class LadderTest extends LivecodeTest {
 
   "Ladder" should {
     // this test gets dependencies through arguments
@@ -82,7 +94,7 @@ class LadderTestPostgres extends LivecodeTest with DummyTest {
 
 }
 
-class ProfilesTestPostgres extends LivecodeTest {
+abstract class ProfilesTest extends LivecodeTest {
   "Profiles" should {
     // that's what the env signature looks like for ZIO Env injection
     "set & get" in {
@@ -100,7 +112,7 @@ class ProfilesTestPostgres extends LivecodeTest {
   }
 }
 
-class RanksTestPostgres extends LivecodeTest {
+abstract class RanksTest extends LivecodeTest {
   "Ranks" should {
     "return None for a user with no score" in {
       for {
@@ -152,5 +164,28 @@ class RanksTestPostgres extends LivecodeTest {
         }
       } yield ()
     }
+  }
+}
+
+final class InjectionTest extends LivecodeTest with DummyTest {
+  "all dependencies are wired" in {
+    () =>
+      def checkActivation(activation: Activation): IO[Throwable, Unit] = {
+        val plan = Injector(activation).plan(
+          input = Seq(
+            LivecodePlugin,
+            ZIOPlugin,
+            // dummy logger + config modules,
+            // normally the RoleStarter or the testkit will provide real values here
+            new LogstageModule(LogRouter.nullRouter, false),
+            new AppConfigModule(ConfigFactory.empty),
+          ).merge,
+          gcMode = GCMode(DIKey.get[LivecodeRole[zio.IO]])
+        )
+        IO(plan.assertImportsResolvedOrThrow())
+      }
+
+      checkActivation(Activation(Repo -> Repo.Dummy)) *>
+      checkActivation(Activation(Repo -> Repo.Prod))
   }
 }
