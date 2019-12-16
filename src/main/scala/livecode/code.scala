@@ -65,10 +65,10 @@ object code {
     def getRank(userId: UserId): F[QueryFailure, Option[RankedProfile]]
   }
 
-  final class LadderDummy[F[+_, +_]: BIO: BIOPrimitives]
-    extends DIResource.LiftF[F[Throwable, ?], Ladder[F]](
+  final class LadderDummy[F[+_, +_]: BIOApplicative: BIOPrimitives]
+    extends DIResource.Make_[F[Throwable, ?], Ladder[F]](
       F.mkRef(Map.empty[UserId, Score]).map(new LadderDummy.Impl(_))
-    )
+    )(release = F.unit)
 
   object LadderDummy {
 
@@ -83,8 +83,8 @@ object code {
     }
   }
 
-  final class ProfilesDummy[F[+_, +_]: BIO: BIOPrimitives]
-    extends DIResource.LiftF[F[Throwable, ?], Profiles[F]](
+  final class ProfilesDummy[F[+_, +_]: BIOApplicative: BIOPrimitives]
+    extends DIResource.Make_[F[Throwable, ?], Profiles[F]](
       F.mkRef(Map.empty[UserId, UserProfile]).map {
         state =>
           new Profiles[F] {
@@ -95,7 +95,7 @@ object code {
               state.get.map(_.get(userId))
           }
       }
-    )
+    )(release = F.unit)
 
   object Ranks {
     final class Impl[F[+_, +_]: BIOMonad](
