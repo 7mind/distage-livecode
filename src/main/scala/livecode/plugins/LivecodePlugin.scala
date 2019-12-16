@@ -25,9 +25,7 @@ object LivecodePlugin extends PluginDef {
       make[HttpApi[F]].from[HttpApi.Impl[F]]
       make[Ranks[F]].from[Ranks.Impl[F]]
 
-      make[Http4sDsl[F[Throwable, ?]]].from {
-        new Http4sDsl[F[Throwable, ?]] {}
-      }
+      make[Http4sDsl[F[Throwable, ?]]]
     }
 
     def repoProd[F[+_, +_]: TagKK]: ModuleDef = new ModuleDef {
