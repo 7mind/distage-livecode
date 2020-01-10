@@ -7,7 +7,7 @@ import izumi.distage.framework.model.PluginSource
 import izumi.distage.model.definition.Activation
 import izumi.distage.model.definition.StandardAxis.Repo
 import izumi.distage.model.plan.GCMode
-import izumi.distage.plugins.load.PluginLoader.PluginConfig
+import izumi.distage.plugins.PluginConfig
 import izumi.distage.testkit.TestConfig
 import izumi.distage.testkit.scalatest.DistageBIOSpecScalatest
 import izumi.distage.testkit.services.DISyntaxZIOEnv
@@ -20,7 +20,7 @@ import zio.{IO, ZIO}
 
 abstract class LivecodeTest extends DistageBIOSpecScalatest[IO] with DISyntaxZIOEnv {
   override def config = TestConfig(
-    pluginSource = Some(PluginSource(PluginConfig(packagesEnabled = Seq("livecode.plugins")))),
+    pluginSource = PluginSource(PluginConfig.cached(packagesEnabled = Seq("livecode.plugins"))),
     activation   = Activation(Repo -> Repo.Prod),
     moduleOverrides = new ModuleDef {
       make[Rnd[IO]].from[Rnd.Impl[IO]]
