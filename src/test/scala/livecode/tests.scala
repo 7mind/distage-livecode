@@ -3,33 +3,38 @@ package livecode
 import com.typesafe.config.ConfigFactory
 import distage.config.AppConfigModule
 import distage.{DIKey, Injector, ModuleDef}
-import izumi.distage.framework.model.PluginSource
 import izumi.distage.model.definition.Activation
 import izumi.distage.model.definition.StandardAxis.Repo
 import izumi.distage.model.plan.GCMode
 import izumi.distage.plugins.PluginConfig
 import izumi.distage.testkit.TestConfig
-import izumi.distage.testkit.scalatest.DistageBIOSpecScalatest
+import izumi.distage.testkit.scalatest.{AssertIO, DistageBIOSpecScalatest}
 import izumi.distage.testkit.services.DISyntaxZIOEnv
 import izumi.logstage.api.logger.LogRouter
+import izumi.logstage.distage.LogstageModule
 import livecode.code._
 import livecode.plugins.{LivecodePlugin, ZIOPlugin}
 import livecode.zioenv._
-import logstage.di.LogstageModule
-import zio.{IO, ZIO}
+import zio.{IO, Task, ZIO}
 
-abstract class LivecodeTest extends DistageBIOSpecScalatest[IO] with DISyntaxZIOEnv {
+abstract class LivecodeTest extends DistageBIOSpecScalatest[IO] with DISyntaxZIOEnv with AssertIO {
   override def config = TestConfig(
-    pluginSource = PluginSource(PluginConfig.cached(packagesEnabled = Seq("livecode.plugins"))),
-    activation   = Activation(Repo -> Repo.Prod),
+    pluginConfig = PluginConfig.cached(packagesEnabled = Seq("livecode.plugins")),
     moduleOverrides = new ModuleDef {
       make[Rnd[IO]].from[Rnd.Impl[IO]]
+      // For testing, setup a docker container with postgres,
+      // instead of trying to connect to an external database
       include(PostgresDockerModule)
     },
+    // instantiate Ladder & Profiles only once per test-run and
+    // share them and all their dependencies across all tests.
+    // this includes the Postgres Docker container above and
+    // table DDLs
     memoizationRoots = Set(
       DIKey.get[Ladder[IO]],
       DIKey.get[Profiles[IO]],
     ),
+    configBaseName = "livecode-test",
   )
 }
 
@@ -64,12 +69,12 @@ abstract class LadderTest extends LivecodeTest {
           score <- rnd[Score]
           _     <- ladder.submitScore(user, score)
           res   <- ladder.getScores.map(_.find(_._1 == user).map(_._2))
-          _     = assert(res contains score)
+          _     <- assertIO(res contains score)
         } yield ()
     }
 
     // other tests get dependencies via ZIO Env:
-    "return higher score higher in the list" in {
+    "assign a higher position in the list to a higher score" in {
       for {
         user1  <- rnd[UserId]
         score1 <- rnd[Score]
@@ -83,11 +88,11 @@ abstract class LadderTest extends LivecodeTest {
         user1Rank = scores.indexWhere(_._1 == user1)
         user2Rank = scores.indexWhere(_._1 == user2)
 
-        _ = if (score1 > score2) {
-          assert(user1Rank < user2Rank)
+        _ <- if (score1 > score2) {
+          assertIO(user1Rank < user2Rank)
         } else if (score2 > score1) {
-          assert(user2Rank < user1Rank)
-        }
+          assertIO(user2Rank < user1Rank)
+        } else IO.unit
       } yield ()
     }
   }
@@ -105,7 +110,7 @@ abstract class ProfilesTest extends LivecodeTest {
         profile = UserProfile(name, desc)
         _       <- profiles.setProfile(user, profile)
         res     <- profiles.getProfile(user)
-        _       = assert(res contains profile)
+        _       <- assertIO(res contains profile)
       } yield ()
       zioValue
     }
@@ -122,7 +127,7 @@ abstract class RanksTest extends LivecodeTest {
         profile = UserProfile(name, desc)
         _       <- profiles.setProfile(user, profile)
         res1    <- ranks.getRank(user)
-        _       = assert(res1.isEmpty)
+        _       <- assertIO(res1.isEmpty)
       } yield ()
     }
 
@@ -132,7 +137,7 @@ abstract class RanksTest extends LivecodeTest {
         score <- rnd[Score]
         _     <- ladder.submitScore(user, score)
         res1  <- ranks.getRank(user)
-        _     = assert(res1.isEmpty)
+        _     <- assertIO(res1.isEmpty)
       } yield ()
     }
 
@@ -157,35 +162,39 @@ abstract class RanksTest extends LivecodeTest {
         user1Rank <- ranks.getRank(user1).map(_.get.rank)
         user2Rank <- ranks.getRank(user2).map(_.get.rank)
 
-        _ = if (score1 > score2) {
-          assert(user1Rank < user2Rank)
+        _ <- if (score1 > score2) {
+          assertIO(user1Rank < user2Rank)
         } else if (score2 > score1) {
-          assert(user2Rank < user1Rank)
-        }
+          assertIO(user2Rank < user1Rank)
+        } else IO.unit
       } yield ()
     }
   }
 }
 
-final class InjectionTest extends LivecodeTest with DummyTest {
-  "all dependencies are wired" in {
-    () =>
-      def checkActivation(activation: Activation): IO[Throwable, Unit] = {
-        val plan = Injector(activation).plan(
-          input = Seq(
-            LivecodePlugin,
-            ZIOPlugin,
-            // dummy logger + config modules,
-            // normally the RoleStarter or the testkit will provide real values here
-            new LogstageModule(LogRouter.nullRouter, false),
-            new AppConfigModule(ConfigFactory.empty),
-          ).merge,
-          gcMode = GCMode(DIKey.get[LivecodeRole[zio.IO]])
-        )
-        IO(plan.assertImportsResolvedOrThrow())
+final class WiringTest extends DistageBIOSpecScalatest[IO] {
+  "all dependencies are wired correctly" in {
+    def checkActivation(activation: Activation): Task[Unit] = {
+      Task {
+        Injector(activation)
+          .plan(
+            Seq(
+              LivecodePlugin,
+              ZIOPlugin,
+              // dummy logger + config modules,
+              // normally the RoleAppMain or the testkit will provide real values here
+              new LogstageModule(LogRouter.nullRouter, setupStaticLogRouter = false),
+              new AppConfigModule(ConfigFactory.empty),
+            ).merge,
+            GCMode(DIKey.get[LivecodeRole[IO]]),
+          )
+          .assertImportsResolvedOrThrow()
       }
+    }
 
-      checkActivation(Activation(Repo -> Repo.Dummy)) *>
-      checkActivation(Activation(Repo -> Repo.Prod))
+    for {
+      _ <- checkActivation(Activation(Repo -> Repo.Dummy))
+      _ <- checkActivation(Activation(Repo -> Repo.Prod))
+    } yield ()
   }
 }

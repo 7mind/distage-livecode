@@ -14,7 +14,9 @@ import zio.interop.catz.implicits._
 
 import scala.concurrent.ExecutionContext
 
-object ZIOPlugin extends ZIODIEffectModule with PluginDef {
+object ZIOPlugin extends PluginDef {
+  include(ZIODIEffectModule)
+
   addImplicit[Bracket2[IO]]
   addImplicit[Async2[IO]]
   addImplicit[ContextShift2[IO]]

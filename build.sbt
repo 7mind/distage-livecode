@@ -1,8 +1,9 @@
 val V = new {
-  val distage         = "0.10.0-M12"
-  val scalatest       = "3.0.8"
+  val distage         = "0.10.2-M8"
+  val logstage        = "0.10.2-M8"
+  val scalatest       = "3.1.1"
   val scalacheck      = "1.14.3"
-  val http4s          = "0.21.0-RC1"
+  val http4s          = "0.21.1"
   val doobie          = "0.8.8"
   val zio             = "1.0.0-RC17"
   val zioCats         = "2.0.0.0-RC10"
@@ -19,6 +20,7 @@ val Deps = new {
   val distageRoles   = "io.7mind.izumi" %% "distage-framework" % V.distage
   val distageDocker  = "io.7mind.izumi" %% "distage-framework-docker" % V.distage
   val distageTestkit = "io.7mind.izumi" %% "distage-testkit-scalatest" % V.distage
+  val logstageSlf4j  = "io.7mind.izumi" %% "logstage-adapter-slf4j" % V.logstage
 
   val http4sDsl    = "org.http4s" %% "http4s-dsl" % V.http4s
   val http4sServer = "org.http4s" %% "http4s-blaze-server" % V.http4s
@@ -54,6 +56,7 @@ lazy val livecode = project
       Deps.distageCore,
       Deps.distageRoles,
       Deps.distageConfig,
+      Deps.logstageSlf4j,
       Deps.distageDocker % Test,
       Deps.distageTestkit % Test,
       Deps.scalatest % Test,

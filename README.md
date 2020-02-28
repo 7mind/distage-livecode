@@ -7,3 +7,9 @@ Features [distage](https://izumi.7mind.io/latest/release/doc/distage/),
 [ZIO Environment](https://zio.dev) for composing test fixtures and [distage-docker](https://github.com/7mind/distage-livecode/blob/livecode/src/test/scala/livecode/PostgresDockerModule.scala) for setting up test containers.
 
 To launch tests that require postgres you need to have `docker` daemon running in the background.
+
+### Videos:
+
+* ScalaWAW Warsaw Meetup – [Livecoding this project](https://www.youtube.com/watch?v=C0srg5T0E4o&t=4971)
+
+* Functional Scala 2019 – [Hyperpragmatic Pure FP testing with distage-testkit](https://www.youtube.com/watch?v=CzpvjkUukAs)

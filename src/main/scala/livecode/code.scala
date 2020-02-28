@@ -66,9 +66,9 @@ object code {
   }
 
   final class LadderDummy[F[+_, +_]: BIOApplicative: BIOPrimitives]
-    extends DIResource.Make_[F[Throwable, ?], Ladder[F]](
+    extends DIResource.LiftF[F[Nothing, ?], Ladder[F]](
       F.mkRef(Map.empty[UserId, Score]).map(new LadderDummy.Impl(_))
-    )(release = F.unit)
+    )
 
   object LadderDummy {
 
@@ -84,18 +84,17 @@ object code {
   }
 
   final class ProfilesDummy[F[+_, +_]: BIOApplicative: BIOPrimitives]
-    extends DIResource.Make_[F[Throwable, ?], Profiles[F]](
-      F.mkRef(Map.empty[UserId, UserProfile]).map {
-        state =>
-          new Profiles[F] {
-            override def setProfile(userId: UserId, profile: UserProfile): F[Nothing, Unit] =
-              state.update_(_ + (userId -> profile))
+    extends DIResource.LiftF[F[Throwable, ?], Profiles[F]](for {
+      state <- F.mkRef(Map.empty[UserId, UserProfile])
+    } yield {
+      new Profiles[F] {
+        override def setProfile(userId: UserId, profile: UserProfile): F[Nothing, Unit] =
+          state.update_(_ + (userId -> profile))
 
-            override def getProfile(userId: UserId): F[Nothing, Option[UserProfile]] =
-              state.get.map(_.get(userId))
-          }
+        override def getProfile(userId: UserId): F[Nothing, Option[UserProfile]] =
+          state.get.map(_.get(userId))
       }
-    )(release = F.unit)
+    })
 
   object Ranks {
     final class Impl[F[+_, +_]: BIOMonad](
@@ -199,35 +198,32 @@ object code {
     final class Postgres[F[+_, +_]: BIOMonad](
       sql: SQL[F],
       log: LogBIO[F],
-    ) extends DIResource.MakePair[F[Throwable, ?], Ladder[F]](
-        acquire = for {
-          _ <- log.info("Creating Ladder table")
-          _ <- sql.execute("ladder-ddl") {
-            sql"""create table if not exists ladder (
-                 | user_id uuid not null,
-                 | score bigint not null,
-                 | primary key (user_id)
-                 |) without oids
-                 |""".stripMargin.update.run.void
-          }
-          res = new Ladder[F] {
+    ) extends DIResource.LiftF[F[Throwable, ?], Ladder[F]](for {
+        _ <- log.info("Creating Ladder table")
+        _ <- sql.execute("ladder-ddl") {
+          sql"""create table if not exists ladder (
+               | user_id uuid not null,
+               | score bigint not null,
+               | primary key (user_id)
+               |) without oids
+               |""".stripMargin.update.run.void
+        }
+        res = new Ladder[F] {
+          override def submitScore(userId: UserId, score: Score): F[QueryFailure, Unit] =
+            sql.execute("submit-score") {
+              sql"""insert into ladder (user_id, score) values ($userId, $score)
+                   |on conflict (user_id) do update set
+                   |  score = excluded.score
+                   |""".stripMargin.update.run.void
+            }
 
-            override def submitScore(userId: UserId, score: Score): F[QueryFailure, Unit] =
-              sql.execute("submit-score") {
-                sql"""insert into ladder (user_id, score) values ($userId, $score)
-                     |on conflict (user_id) do update set
-                     |  score = excluded.score
-                     |""".stripMargin.update.run.void
-              }
-
-            override val getScores: F[QueryFailure, List[(UserId, Score)]] =
-              sql.execute("get-leaderboard") {
-                sql"""select user_id, score from ladder order by score DESC
-                     |""".stripMargin.query[(UserId, Score)].to[List]
-              }
-          }
-        } yield res -> F.unit
-      )
+          override val getScores: F[QueryFailure, List[(UserId, Score)]] =
+            sql.execute("get-leaderboard") {
+              sql"""select user_id, score from ladder order by score DESC
+                   |""".stripMargin.query[(UserId, Score)].to[List]
+            }
+        }
+      } yield res)
   }
 
   object Profiles {
