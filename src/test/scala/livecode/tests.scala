@@ -8,8 +8,7 @@ import izumi.distage.model.definition.StandardAxis.Repo
 import izumi.distage.model.plan.GCMode
 import izumi.distage.plugins.PluginConfig
 import izumi.distage.testkit.TestConfig
-import izumi.distage.testkit.scalatest.{AssertIO, DistageBIOSpecScalatest}
-import izumi.distage.testkit.services.DISyntaxZIOEnv
+import izumi.distage.testkit.scalatest.{AssertIO, DistageBIOEnvSpecScalatest, DistageBIOSpecScalatest}
 import izumi.logstage.api.logger.LogRouter
 import izumi.logstage.distage.LogstageModule
 import livecode.code._
@@ -17,7 +16,7 @@ import livecode.plugins.{LivecodePlugin, ZIOPlugin}
 import livecode.zioenv._
 import zio.{IO, Task, ZIO}
 
-abstract class LivecodeTest extends DistageBIOSpecScalatest[IO] with DISyntaxZIOEnv with AssertIO {
+abstract class LivecodeTest extends DistageBIOEnvSpecScalatest[ZIO] with AssertIO {
   override def config = TestConfig(
     pluginConfig = PluginConfig.cached(packagesEnabled = Seq("livecode.plugins")),
     moduleOverrides = new ModuleDef {
@@ -119,16 +118,18 @@ abstract class ProfilesTest extends LivecodeTest {
 
 abstract class RanksTest extends LivecodeTest {
   "Ranks" should {
+    // you can mix arguments and ZIO Env injection at the same time
     "return None for a user with no score" in {
-      for {
-        user    <- rnd[UserId]
-        name    <- rnd[String]
-        desc    <- rnd[String]
-        profile = UserProfile(name, desc)
-        _       <- profiles.setProfile(user, profile)
-        res1    <- ranks.getRank(user)
-        _       <- assertIO(res1.isEmpty)
-      } yield ()
+      (ranks: Ranks[IO]) =>
+        for {
+          user    <- rnd[UserId]
+          name    <- rnd[String]
+          desc    <- rnd[String]
+          profile = UserProfile(name, desc)
+          _       <- profiles.setProfile(user, profile)
+          res1    <- ranks.getRank(user)
+          _       <- assertIO(res1.isEmpty)
+        } yield ()
     }
 
     "return None for a user with no profile" in {

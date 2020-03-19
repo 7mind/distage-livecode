@@ -32,7 +32,7 @@ object PostgresDockerModule extends ModuleDef {
         connectTimeoutMs = 500,
         allowReuse       = true,
         useRemote        = false,
-        useRegistry      = true,
+        useRegistry      = false,
         remote           = None,
         registry         = None,
       )
