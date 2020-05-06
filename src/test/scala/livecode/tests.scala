@@ -87,11 +87,12 @@ abstract class LadderTest extends LivecodeTest {
         user1Rank = scores.indexWhere(_._1 == user1)
         user2Rank = scores.indexWhere(_._1 == user2)
 
-        _ <- if (score1 > score2) {
-          assertIO(user1Rank < user2Rank)
-        } else if (score2 > score1) {
-          assertIO(user2Rank < user1Rank)
-        } else IO.unit
+        _ <-
+          if (score1 > score2) {
+            assertIO(user1Rank < user2Rank)
+          } else if (score2 > score1) {
+            assertIO(user2Rank < user1Rank)
+          } else IO.unit
       } yield ()
     }
   }
@@ -103,13 +104,13 @@ abstract class ProfilesTest extends LivecodeTest {
     // that's what the env signature looks like for ZIO Env injection
     "set & get" in {
       val zioValue: ZIO[ProfilesEnv with RndEnv, QueryFailure, Unit] = for {
-        user    <- rnd[UserId]
-        name    <- rnd[String]
-        desc    <- rnd[String]
+        user   <- rnd[UserId]
+        name   <- rnd[String]
+        desc   <- rnd[String]
         profile = UserProfile(name, desc)
-        _       <- profiles.setProfile(user, profile)
-        res     <- profiles.getProfile(user)
-        _       <- assertIO(res contains profile)
+        _      <- profiles.setProfile(user, profile)
+        res    <- profiles.getProfile(user)
+        _      <- assertIO(res contains profile)
       } yield ()
       zioValue
     }
@@ -122,13 +123,13 @@ abstract class RanksTest extends LivecodeTest {
     "return None for a user with no score" in {
       (ranks: Ranks[IO]) =>
         for {
-          user    <- rnd[UserId]
-          name    <- rnd[String]
-          desc    <- rnd[String]
+          user   <- rnd[UserId]
+          name   <- rnd[String]
+          desc   <- rnd[String]
           profile = UserProfile(name, desc)
-          _       <- profiles.setProfile(user, profile)
-          res1    <- ranks.getRank(user)
-          _       <- assertIO(res1.isEmpty)
+          _      <- profiles.setProfile(user, profile)
+          res1   <- ranks.getRank(user)
+          _      <- assertIO(res1.isEmpty)
         } yield ()
     }
 
@@ -163,11 +164,12 @@ abstract class RanksTest extends LivecodeTest {
         user1Rank <- ranks.getRank(user1).map(_.get.rank)
         user2Rank <- ranks.getRank(user2).map(_.get.rank)
 
-        _ <- if (score1 > score2) {
-          assertIO(user1Rank < user2Rank)
-        } else if (score2 > score1) {
-          assertIO(user2Rank < user1Rank)
-        } else IO.unit
+        _ <-
+          if (score1 > score2) {
+            assertIO(user1Rank < user2Rank)
+          } else if (score2 > score1) {
+            assertIO(user2Rank < user1Rank)
+          } else IO.unit
       } yield ()
     }
   }
