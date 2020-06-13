@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.UUID
 
 import cats.effect.{Async, Blocker, ContextShift, Resource}
-import distage.DIResource
+import distage.{DIResource, Id}
 import distage.DIResource.DIResourceBase
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
@@ -22,6 +22,7 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.server.blaze.BlazeServerBuilder
 
 import scala.annotation.unused
+import scala.concurrent.ExecutionContext
 
 object code {
   type UserId = UUID
@@ -322,13 +323,14 @@ object code {
     */
   final class LivecodeRole[F[+_, +_]](
     httpApi: HttpApi[F],
+    cpuPool: ExecutionContext @Id("zio.cpu")
   )(implicit
     concurrentEffect2: ConcurrentEffect2[F],
     timer2: Timer2[F],
   ) extends RoleService[F[Throwable, ?]] {
     override def start(roleParameters: RawEntrypointParams, freeArgs: Vector[String]): DIResourceBase[F[Throwable, ?], Unit] = {
       DIResource.fromCats {
-        BlazeServerBuilder[F[Throwable, ?]]
+        BlazeServerBuilder(cpuPool)
           .withHttpApp(httpApi.http.orNotFound)
           .bindLocal(8080)
           .resource
