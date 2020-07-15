@@ -1,6 +1,6 @@
 # ATTENTION
 
-this project has been superseded by [distage-example](https://github.com/distage-example), please consult `distage-example` for up-to-date version of this project.
+this project has been superseded by [distage-example](https://github.com/7mind/distage-example), please consult `distage-example` for up-to-date version of this project.
 
 # distage Livecoding example
 
